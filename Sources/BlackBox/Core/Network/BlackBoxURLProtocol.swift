@@ -1,5 +1,5 @@
 //
-//  ShakeLogURLProtocol.swift
+//  BlackBoxURLProtocol.swift
 //  ShakeLog
 //
 //  Created by furkan vural on 12.02.2026.
