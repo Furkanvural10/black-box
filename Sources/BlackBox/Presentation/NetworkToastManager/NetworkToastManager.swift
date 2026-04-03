@@ -66,6 +66,13 @@ public class NetworkToastManager: @unchecked Sendable {
         
         if let window = currentToastWindow, let rootViewController = window.rootViewController {
             
+            if #available(iOS 14.0, *) {
+                // SwiftUI
+            } else {
+                // UIKit
+            }
+            
+            
         } else {
             createWindow(request: request, response: response)
             animateIn()
@@ -77,7 +84,19 @@ public class NetworkToastManager: @unchecked Sendable {
     private func createWindow(request: NetworkRequest, response: NetworkResponse?) {
         guard let windowScene = UIApplication.shared.connectedScenes
             .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
-            return
+            
+        
+        let window = UIWindow(windowScene: windowScene)
+        window.windowLevel = .alert + 1
+        window.backgroundColor = .clear
+        window.isUserInteractionEnabled = true
+        
+        if #available(iOS 14.0, *) {
+            // SwiftUI
+        } else {
+            // UIKit
+        }
+        
     }
     
     private func scheduleDismiss() {
