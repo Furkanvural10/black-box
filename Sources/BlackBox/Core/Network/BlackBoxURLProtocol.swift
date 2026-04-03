@@ -44,7 +44,11 @@ class BlackBoxURLProtocol: URLProtocol, @unchecked Sendable {
         let mutableRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
         URLProtocol.setProperty(id.uuidString, forKey: BlackBoxURLProtocol.requestIdKey, in: mutableRequest)
         
+        let networkRequest = NetworkRequest(id: id, method: request.httpMethod ?? "GET", url: url, headers: request.allHTTPHeaderFields ?? [:], body: request.httpBody)
         
+        #warning("Fix this dependency")
+        NetworkIntercepter.shared.notifyRequestStarted(request: networkRequest)
+                
         let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
         dataTask = session.dataTask(with: mutableRequest as URLRequest)
         dataTask?.resume()
@@ -83,6 +87,17 @@ extension BlackBoxURLProtocol: URLSessionDataDelegate {
         }
         
         let duration = Date().timeIntervalSince(startTime)
+        
+        let networkResponse = NetworkResponse(
+            requestID: requestId,
+            statusCode: httpResponse.statusCode,
+            headers: httpResponse.allHeaderFields as? [String: String] ?? [:],
+            data: receivedData as Data?,
+            duration: duration,
+        )
+        
+        #warning("Fix dependency")
+        NetworkIntercepter.shared.notifyResponseReceived(networkResponse)
         
         
     }

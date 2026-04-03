@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import SwiftUI
 
 @MainActor
 public class NetworkToastManager: @unchecked Sendable {
@@ -67,9 +68,21 @@ public class NetworkToastManager: @unchecked Sendable {
         if let window = currentToastWindow, let rootViewController = window.rootViewController {
             
             if #available(iOS 14.0, *) {
-                // SwiftUI
+                if let hostingController = rootViewController as? UIHostingController<NetworkToastView> {
+                    hostingController.rootView = NetworkToastView(
+                        request: request,
+                        response: response,
+                        isExpanded: isExpanded,
+                        onDismiss: { [weak self] in
+                            self?.forceDismiss()
+                        }
+                    )
+                }
             } else {
                 // UIKit
+                if let viewController = rootViewController as? NetworkToastViewController {
+                    viewController.update(request: request, response: response)
+                }
             }
             
             
@@ -93,9 +106,34 @@ public class NetworkToastManager: @unchecked Sendable {
         
         if #available(iOS 14.0, *) {
             // SwiftUI
+            let hostingController = UIHostingController(
+                rootView: NetworkToastView(
+                    request: request,
+                    response: response,
+                    isExpanded: isExpanded, // Pass current state
+                    onDismiss: { [weak self] in
+                        self?.forceDismiss()
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, 50)
+            )
+            hostingController.view.backgroundColor = .clear
+            window.rootViewController = hostingController
         } else {
             // UIKit
+            let viewController = NetworkToastViewController(
+                request: request,
+                response: response) { [weak self] in
+                    self?.forceDismiss()
+                }
+            
+            window.rootViewController = viewController
+            
         }
+        
+        window.makeKeyAndVisible()
+        currentToastWindow = window
         
     }
     

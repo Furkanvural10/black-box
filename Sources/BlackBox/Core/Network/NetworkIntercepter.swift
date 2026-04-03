@@ -71,6 +71,19 @@ public class NetworkIntercepter: @unchecked Sendable {
         }
     }
     
+    func notifyResponseReceived(_ response: NetworkResponse) {
+        lock.lock()
+        
+        let handllers = responseHandlers
+        
+        lock.unlock()
+        
+        DispatchQueue.main.async {
+            handllers.forEach { $0(response) }
+        }
+        
+    }
+    
 }
 
 
@@ -122,7 +135,7 @@ public class NetworkResponse: @unchecked Sendable {
     
     public let requestID: UUID
     public let statusCode: Int
-    public let header: [String: String]
+    public let headers: [String: String]
     public let data: Data?
     public let duration: TimeInterval
     public let timestamp: Date
@@ -130,14 +143,14 @@ public class NetworkResponse: @unchecked Sendable {
     init(
         requestID: UUID,
         statusCode: Int,
-        header: [String : String] = [:],
+        headers: [String : String] = [:],
         data: Data? = nil,
         duration: TimeInterval,
         timestamp: Date = .init()
     ) {
         self.requestID = requestID
         self.statusCode = statusCode
-        self.header = header
+        self.headers = headers
         self.data = data
         self.duration = duration
         self.timestamp = timestamp
