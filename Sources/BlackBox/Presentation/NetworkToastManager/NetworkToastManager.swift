@@ -5,35 +5,34 @@
 //  Created by furkan vural on 2.04.2026.
 //
 
-import Foundation
+
 import UIKit
 import SwiftUI
 
 @MainActor
 public class NetworkToastManager: @unchecked Sendable {
-    
-    public static let shared: NetworkToastManager = .init()
+    public static let shared = NetworkToastManager()
     
     private var currentToastWindow: UIWindow?
     private var activeRequests: [UUID: NetworkRequest] = [:]
     private var toastDuration: TimeInterval = 2.0
     private var dismissWorkItem: DispatchWorkItem?
     private var lastToastShowTime: Date?
-    private var minimumDisplayTime: TimeInterval = 2
+    private let minimumDisplayTime: TimeInterval = 2
     
     private var isExpanded: Bool = false
-    private var pendingRequest: [NetworkRequest] = []
-    private var pendingResponse: [NetworkResponse] = []
+    private var pendingRequests: [NetworkRequest] = []
+    private var pendingResponses: [NetworkResponse] = []
     
-    private init() { }
+    private init() {}
     
-    public func configure(tostDuration: TimeInterval) {
-        self.toastDuration = tostDuration
+    public func configure(toastDuration: TimeInterval) {
+        self.toastDuration = toastDuration
     }
     
     public func showRequest(_ request: NetworkRequest) {
         if currentToastWindow != nil {
-            pendingRequest.append(request)
+            pendingRequests.append(request)
         } else {
             activeRequests[request.id] = request
             presentToast(request: request, response: nil)
@@ -41,13 +40,15 @@ public class NetworkToastManager: @unchecked Sendable {
     }
     
     public func updateWithResponse(_ response: NetworkResponse) {
-        if let index = pendingRequest.firstIndex(where: { $0.id == response.requestID }) {
-            pendingResponse.append(response)
-            return
-        }
-        
+        if let index = pendingRequests.firstIndex(where: { $0.id == response.requestID }) {
+            // Response came for a pending request
+             pendingResponses.append(response)
+             return
+         }
+
         guard let request = activeRequests[response.requestID] else { return }
         
+        // Update immediately to show response info, and reset timer
         DispatchQueue.main.async { [weak self] in
             self?.presentToast(request: request, response: response)
         }
@@ -63,29 +64,39 @@ public class NetworkToastManager: @unchecked Sendable {
     }
     
     private func presentToast(request: NetworkRequest, response: NetworkResponse?) {
+        // Don't dismiss, update if exists
+        
         lastToastShowTime = Date()
         
-        if let window = currentToastWindow, let rootViewController = window.rootViewController {
-            
+        if let window = currentToastWindow, let rootVC = window.rootViewController {
+            // Update existing view
             if #available(iOS 14.0, *) {
-                if let hostingController = rootViewController as? UIHostingController<NetworkToastView> {
-                    hostingController.rootView = NetworkToastView(
-                        request: request,
-                        response: response,
-                        isExpanded: isExpanded,
-                        onDismiss: { [weak self] in
-                            self?.forceDismiss()
-                        }
-                    )
+                let toastView = NetworkToastView(
+                    request: request,
+                    response: response,
+                    isExpanded: isExpanded,
+                    onDismiss: { [weak self] in
+                        self?.forceDismiss()
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, 50)
+                
+                if let hostingController = rootVC as? UIHostingController<ModifiedContent<ModifiedContent<NetworkToastView, _FrameLayout>, _PaddingLayout>> {
+                    hostingController.rootView = toastView as! ModifiedContent<ModifiedContent<NetworkToastView, _FrameLayout>, _PaddingLayout>
+                } else if let hostingController = rootVC as? UIHostingController<NetworkToastView> {
+                     // Fallback if types don't match exactly due to modifiers
+                    hostingController.rootView = toastView as! NetworkToastView
+                } else {
+                     // Recreate if controller type mismatch (shouldn't happen often)
+                     createWindow(request: request, response: response)
                 }
             } else {
-                // UIKit
-                if let viewController = rootViewController as? NetworkToastViewController {
-                    viewController.update(request: request, response: response)
+                // UIKit Fallback update
+                if let vc = rootVC as? NetworkToastViewController {
+                    vc.update(request: request, response: response)
                 }
             }
-            
-            
         } else {
             createWindow(request: request, response: response)
             animateIn()
@@ -93,11 +104,12 @@ public class NetworkToastManager: @unchecked Sendable {
         
         scheduleDismiss()
     }
-    
+
     private func createWindow(request: NetworkRequest, response: NetworkResponse?) {
         guard let windowScene = UIApplication.shared.connectedScenes
-            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
-            
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else {
+            return
+        }
         
         let window = UIWindow(windowScene: windowScene)
         window.windowLevel = .alert + 1
@@ -105,66 +117,33 @@ public class NetworkToastManager: @unchecked Sendable {
         window.isUserInteractionEnabled = true
         
         if #available(iOS 14.0, *) {
-            // SwiftUI
-            let hostingController = UIHostingController(
-                rootView: NetworkToastView(
-                    request: request,
-                    response: response,
-                    isExpanded: isExpanded, // Pass current state
-                    onDismiss: { [weak self] in
-                        self?.forceDismiss()
-                    }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.top, 50)
-            )
-            hostingController.view.backgroundColor = .clear
-            window.rootViewController = hostingController
-        } else {
-            // UIKit
-            let viewController = NetworkToastViewController(
+            let toastView = NetworkToastView(
                 request: request,
-                response: response) { [weak self] in
+                response: response,
+                isExpanded: isExpanded,
+                onDismiss: { [weak self] in
                     self?.forceDismiss()
                 }
-            
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 50)
+                let hostingController = UIHostingController(rootView: toastView)
+                hostingController.view.backgroundColor = .clear
+                window.rootViewController = hostingController
+        } else {
+            let viewController = NetworkToastViewController(
+                request: request,
+                response: response,
+                onDismiss: { [weak self] in
+                    self?.forceDismiss()
+                }
+            )
             window.rootViewController = viewController
             
         }
         
         window.makeKeyAndVisible()
         currentToastWindow = window
-        
-    }
-    
-    private func scheduleDismiss() {
-        dismissWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            if !self.isExpanded {
-                forceDismiss()
-            }
-        }
-        
-        dismissWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + toastDuration, execute: workItem)
-    }
-    
-    private func forceDismiss() {
-        guard let window = currentToastWindow else { return }
-        
-        UIView.animate(withDuration: 0.4, animations: {
-            window.rootViewController?.view.transform = CGAffineTransform(translationX: 0, y: -200)
-            window.rootViewController?.view.alpha = 0
-            
-        }) { _ in
-            window.isHidden = true
-            self.currentToastWindow = nil
-            self.isExpanded = false
-            
-            self.showNextPendingRequest()
-        }
-        
     }
     
     private func animateIn() {
@@ -173,24 +152,56 @@ public class NetworkToastManager: @unchecked Sendable {
         window.rootViewController?.view.transform = CGAffineTransform(translationX: 0, y: -200)
         window.rootViewController?.view.alpha = 0
         
-        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0, options: .curveEaseOut) {
+        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0, options: .curveEaseOut) {
             window.rootViewController?.view.transform = .identity
             window.rootViewController?.view.alpha = 1
         }
-
+    }
+    
+    private func forceDismiss() {
+        guard let window = currentToastWindow else { return }
+        
+        UIView.animate(withDuration: 0.3, animations: {
+            window.rootViewController?.view.transform = CGAffineTransform(translationX: 0, y: -200)
+            window.rootViewController?.view.alpha = 0
+        }) { _ in
+            window.isHidden = true
+            self.currentToastWindow = nil
+            self.isExpanded = false
+            
+            self.showNextPendingRequest()
+        }
+    }
+    
+    private func scheduleDismiss() {
+        dismissWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            if !self.isExpanded {
+                self.forceDismiss()
+            }
+        }
+        dismissWorkItem = workItem
+        // Use configured duration (e.g. 2.0s) from now
+        DispatchQueue.main.asyncAfter(deadline: .now() + toastDuration, execute: workItem)
+    }
+    
+    private func dismissToast() {
+        scheduleDismiss()
     }
     
     private func showNextPendingRequest() {
-        guard !pendingRequest.isEmpty else { return }
-        let nextRequest = pendingRequest.removeFirst()
+        guard !pendingRequests.isEmpty else { return }
+        let nextRequest = pendingRequests.removeFirst()
         activeRequests[nextRequest.id] = nextRequest
         
-        if let responseIndex = pendingResponse.firstIndex(where: { $0.requestID == nextRequest.id }) {
-            let response = pendingResponse.remove(at: responseIndex)
-            presentToast(request: nextRequest, response: response)
+        // Check if we already have a response for this request
+        if let responseIndex = pendingResponses.firstIndex(where: { $0.requestID == nextRequest.id }) {
+            let response = pendingResponses.remove(at: responseIndex)
+             presentToast(request: nextRequest, response: response)
+             scheduleDismiss()
         } else {
             presentToast(request: nextRequest, response: nil)
         }
     }
-    
 }

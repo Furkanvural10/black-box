@@ -38,7 +38,7 @@ struct NetworkToastView: View {
                 }
             
             VStack(alignment: .leading, spacing: 12) {
-                
+                // Row 1: Method + URL
                 HStack(spacing: 12) {
                     methodBadge
                     Text(request.url.absoluteString)
@@ -47,6 +47,7 @@ struct NetworkToastView: View {
                         .lineLimit(1)
                 }
                 
+                // Row 2: Status + Duration + Size + Expand
                 HStack(spacing: 16) {
                     if let response = response {
                         statusBadge(response.statusCode)

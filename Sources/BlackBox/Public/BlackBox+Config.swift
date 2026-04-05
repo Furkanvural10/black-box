@@ -27,13 +27,14 @@ public extension BlackBox {
     @MainActor static var config = Config()
     
     @MainActor static func configure(_ config: Config) {
+        #if DEBUG
         self.config = config
         
         if config.enableNetworkInterception {
             NetworkIntercepter.shared.enable()
             
             if config.showNetworkToast {
-                NetworkToastManager.shared.configure(tostDuration: config.toastDuration)
+                NetworkToastManager.shared.configure(toastDuration: config.toastDuration)
                 
                 NetworkIntercepter.shared.onRequestStarted { request in
                     NetworkToastManager.shared.showRequest(request)
@@ -44,6 +45,7 @@ public extension BlackBox {
                 }
             }
         }
+        #endif
     }
     
 }
