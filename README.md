@@ -33,14 +33,14 @@
 In Xcode, go to **File → Add Package Dependencies** and enter the repository URL:
 
 ```
-https://github.com/yourusername/BlackBox
+https://github.com/Furkanvural10/black-box.git
 ```
 
 Or add it manually to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/yourusername/BlackBox", from: "1.0.0")
+    .package(url: "https://github.com/Furkanvural10/black-box.git", from: "1.0.0")
 ],
 targets: [
     .target(
@@ -69,7 +69,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         var config = BlackBox.Config()
         config.enableNetworkInterception = true
-        config.showNetworkToasts = true
+        config.showNetworkToast = true
         config.toastDuration = 6.0
         BlackBox.configure(config)
 
@@ -116,7 +116,7 @@ var config = BlackBox.Config()
 config.enableNetworkInterception = true
 
 // Show in-app toast overlays for each request/response
-config.showNetworkToasts = true
+config.showNetworkToast = true
 
 // How long each toast stays visible (in seconds)
 config.toastDuration = 6.0
@@ -133,7 +133,7 @@ BlackBox.configure(config)
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `enableNetworkInterception` | `Bool` | `false` | Registers `URLProtocol` subclass to intercept all requests |
-| `showNetworkToasts` | `Bool` | `true` | Displays floating toast for each intercepted request |
+| `showNetworkToast` | `Bool` | `true` | Displays floating toast for each intercepted request |
 | `toastDuration` | `TimeInterval` | `6.0` | Seconds before the toast auto-dismisses |
 | `presentationMode` | `PresentationMode` | `.uiKit` | Rendering framework for the toast UI |
 
