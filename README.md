@@ -2,6 +2,7 @@
 
 **BlackBox** is a lightweight, zero-dependency iOS debugging toolkit built as a Swift Package. It intercepts every network request your app makes, displays real-time toast notifications directly on screen, and gives you instant access to response bodies, headers, and cURL commands — without ever leaving your app or opening an external tool.
 
+![BlackBox Demo](Assets/BlackBoxReview.gif)
 ---
 
 ## Features
